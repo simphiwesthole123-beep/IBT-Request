@@ -95,6 +95,7 @@
       <div class="summary-card">
         <div id="nearestText">📍 Select an item to locate nearest stock</div>
         <div id="totalStockText">📦 Total Network Stock: 0 units</div>
+        <div id="routeText">🛣️ Select a source branch pill to preview road route</div>
       </div>
 
       <div>
@@ -126,6 +127,7 @@
   let selectedSourceBranch = null;
   let map = null;
   let markersLayer = null;
+  let routeLayer = null;
 
   function getCurrentTimePin() {
     const now = new Date();
@@ -145,6 +147,7 @@
         attribution: '© OpenStreetMap contributors'
       }).addTo(map);
       markersLayer = L.layerGroup().addTo(map);
+      routeLayer = L.layerGroup().addTo(map);
     }
     setTimeout(() => map.invalidateSize(), 50);
   }
@@ -156,6 +159,66 @@
     return +(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))).toFixed(1);
   }
 
+  function formatDuration(seconds) {
+    const totalMins = Math.max(1, Math.round(seconds / 60));
+    const hrs = Math.floor(totalMins / 60);
+    const mins = totalMins % 60;
+    return hrs > 0 ? `${hrs}h ${mins}m` : `${totalMins} min`;
+  }
+
+  async function drawRouteToBranch(home, item) {
+    if (!routeLayer) return;
+    routeLayer.clearLayers();
+    const routeEl = document.getElementById("routeText");
+    const myCode = document.getElementById("myBranch").value;
+
+    if (!home || !item) {
+      routeEl.textContent = "🛣️ Select a source branch pill to preview road route";
+      return;
+    }
+
+    const fromLat = Number(item.Latitude), fromLon = Number(item.Longitude);
+    const toLat = Number(home.lat), toLon = Number(home.lon);
+    const fallbackCoords = [[fromLat, fromLon], [toLat, toLon]];
+
+    routeEl.textContent = `🛣️ Calculating OSRM route (${item.BranchLocation} → ${myCode})...`;
+
+    try {
+      const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${fromLon},${fromLat};${toLon},${toLat}?overview=full&geometries=geojson`;
+      const res = await fetch(osrmUrl);
+      const data = await res.json();
+
+      if (data.code === "Ok" && data.routes && data.routes[0]) {
+        const route = data.routes[0];
+        const latLngs = route.geometry.coordinates.map(([lon, lat]) => [lat, lon]);
+        const roadKm = (route.distance / 1000).toFixed(1);
+        const eta = formatDuration(route.duration);
+
+        const polyline = L.polyline(latLngs, {
+          color: "#0078d4",
+          weight: 4.5,
+          opacity: 0.9
+        }).addTo(routeLayer);
+
+        routeEl.textContent = `🛣️ OSRM Route (${item.BranchLocation} → ${myCode}): ${roadKm} km (~${eta})`;
+        map.fitBounds(polyline.getBounds(), { padding: [45, 45], maxZoom: 12 });
+        return;
+      }
+    } catch (e) {
+      // Fallback to straight line if OSRM request fails
+    }
+
+    const fallbackLine = L.polyline(fallbackCoords, {
+      color: "#0078d4",
+      weight: 3,
+      opacity: 0.85,
+      dashArray: "6, 6"
+    }).addTo(routeLayer);
+
+    routeEl.textContent = `🛣️ Direct line (${item.BranchLocation} → ${myCode}): ${item.dist} km (OSRM unavailable)`;
+    map.fitBounds(fallbackLine.getBounds(), { padding: [45, 45], maxZoom: 12 });
+  }
+
   function resetSelectionKeepName() {
     selectedPart = "";
     selectedSourceBranch = null;
@@ -163,11 +226,13 @@
     document.getElementById("branchPills").innerHTML = "";
     document.getElementById("nearestText").textContent = "📍 Select an item to locate nearest stock";
     document.getElementById("totalStockText").textContent = "📦 Total Network Stock: 0 units";
+    document.getElementById("routeText").textContent = "🛣️ Select a source branch pill to preview road route";
     document.getElementById("requestQty").value = "";
     document.getElementById("jobCard").value = "";
     document.getElementById("comments").value = "";
     document.getElementById("qtyError").style.display = "none";
     if (markersLayer) markersLayer.clearLayers();
+    if (routeLayer) routeLayer.clearLayers();
     validateForm();
   }
 
@@ -239,6 +304,8 @@
     selectedPart = document.getElementById("partSearch").value.trim();
     selectedSourceBranch = null;
     markersLayer.clearLayers();
+    if (routeLayer) routeLayer.clearLayers();
+    document.getElementById("routeText").textContent = "🛣️ Select a source branch pill to preview road route";
 
     const myCode = document.getElementById("myBranch").value;
     const home = branches[myCode];
@@ -272,13 +339,15 @@
         .addTo(markersLayer);
 
       const btn = document.createElement("button");
+      btn.type = "button";
       btn.className = "pill";
       btn.textContent = `${item.BranchLocation} (${item.QtyInStock} avail • ${item.dist} km)`;
-      btn.onclick = () => {
+      btn.onclick = async () => {
         document.querySelectorAll(".pill").forEach(p => p.classList.remove("active"));
         btn.classList.add("active");
         selectedSourceBranch = item;
         validateForm();
+        await drawRouteToBranch(home, item);
       };
       pillsDiv.appendChild(btn);
     });
