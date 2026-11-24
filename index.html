@@ -13,19 +13,23 @@
     header h1 { margin: 0; font-size: 1.35rem; }
     header p { margin: 2px 0 0; font-size: 0.85rem; color: #d0d0d0; }
 
-    /* PIN Gate */
-    #pinGate { max-width: 400px; margin: 70px auto; background: #fff; padding: 28px 24px; border-radius: 10px; border: 1px solid #e2c7b8; box-shadow: 0 8px 24px rgba(0,0,0,0.08); text-align: center; }
-    #pinGate h2 { margin: 0 0 6px; font-size: 1.25rem; }
-    #pinGate p { margin: 0 0 18px; font-size: 0.9rem; color: #555; }
-    #pinInput { width: 100%; padding: 12px; font-size: 1.1rem; text-align: center; letter-spacing: 4px; border: 1px solid #bbb; border-radius: 6px; margin-bottom: 12px; }
-    #btnUnlock { width: 100%; padding: 12px; background: var(--accent); color: #fff; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer; }
+    /* PIN & Email Gate */
+    #pinGate { max-width: 420px; margin: 64px auto; background: #fff; padding: 28px 24px; border-radius: 10px; border: 1px solid #e2c7b8; box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+    #pinGate h2 { margin: 0 0 6px; font-size: 1.25rem; text-align: center; }
+    #pinGate p { margin: 0 0 18px; font-size: 0.9rem; color: #555; text-align: center; }
+    .field-group { margin-bottom: 14px; }
+    .field-group label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 5px; }
+    #emailInput { width: 100%; padding: 11px 12px; font-size: 0.95rem; border: 1px solid #bbb; border-radius: 6px; }
+    #pinInput { width: 100%; padding: 12px; font-size: 1.1rem; text-align: center; letter-spacing: 4px; border: 1px solid #bbb; border-radius: 6px; }
+    #btnUnlock { width: 100%; padding: 12px; background: var(--accent); color: #fff; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer; margin-top: 4px; }
     #btnUnlock:disabled { background: #9bbad6; cursor: not-allowed; }
-    #pinError { color: var(--danger); font-size: 0.88rem; font-weight: 600; margin-top: 10px; min-height: 20px; }
+    #pinError { color: var(--danger); font-size: 0.88rem; font-weight: 600; margin-top: 10px; min-height: 20px; text-align: center; }
 
     /* Main App */
     #appView { display: none; }
-    .branch-bar { background: #1e1e1e; color: #fff; padding: 8px 24px; display: flex; gap: 12px; align-items: center; font-size: 0.9rem; }
+    .branch-bar { background: #1e1e1e; color: #fff; padding: 8px 24px; display: flex; gap: 12px; align-items: center; font-size: 0.9rem; flex-wrap: wrap; }
     .branch-bar select, .btn-lock { padding: 5px 10px; border-radius: 4px; border: none; }
+    .user-tag { font-size: 0.84rem; color: #cfcfcf; }
     .btn-lock { margin-left: auto; background: #333; color: #fff; cursor: pointer; font-size: 0.82rem; }
     .container { display: grid; grid-template-columns: 1.15fr 1fr; gap: 18px; padding: 18px 24px; max-width: 1400px; margin: auto; }
     @media (max-width: 900px) { .container { grid-template-columns: 1fr; } }
@@ -52,14 +56,24 @@
     <h1>Stock Request Form</h1>
     <p>All Components — IBT (Inter-Branch Transfer)</p>
   </div>
-  <div id="statusBadge" style="font-size:0.85rem;color:#ffd27d;">PIN Required</div>
+  <div id="statusBadge" style="font-size:0.85rem;color:#ffd27d;">Verification Required</div>
 </header>
 
 <section id="pinGate">
-  <h2>Branch Access PIN</h2>
-  <p>Enter your branch PIN to load live stock and open the IBT form.</p>
-  <input id="pinInput" type="password" inputmode="numeric" autocomplete="off" placeholder="••••" />
-  <button id="btnUnlock">Unlock IBT Portal</button>
+  <h2>Branch Access &amp; Sign-In</h2>
+  <p>Enter your @citylogistics.co.za email and current 4-digit time PIN (HHMM).</p>
+
+  <div class="field-group">
+    <label for="emailInput">Company Email (@citylogistics.co.za) *</label>
+    <input id="emailInput" type="email" autocomplete="email" placeholder="name@citylogistics.co.za" />
+  </div>
+
+  <div class="field-group">
+    <label for="pinInput">Current Time PIN (e.g. 1046 or 1301) *</label>
+    <input id="pinInput" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••" />
+  </div>
+
+  <button id="btnUnlock" type="button">Unlock IBT Portal</button>
   <div id="pinError"></div>
 </section>
 
@@ -67,7 +81,8 @@
   <div class="branch-bar">
     <label for="myBranch"><strong>My Branch:</strong></label>
     <select id="myBranch"></select>
-    <button id="btnLock" class="btn-lock" type="button">Lock / Change PIN</button>
+    <span id="signedInUser" class="user-tag"></span>
+    <button id="btnLock" class="btn-lock" type="button">Lock / Switch User</button>
   </div>
 
   <div class="container">
@@ -103,16 +118,27 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-  const BRANCH_PIN = "2415";
   const GET_STOCK_URL = "https://default0e23ddde1cba42eb9760e698ce0a9b.00.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/31/workflows/783eb2701d0e4d9abebdd53365a1d2d5/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=NdIeEnSrJDvDcv1rRnDqKAnTCr97V4CFz786nhr87zM";
   const SUBMIT_IBT_URL = "https://default0e23ddde1cba42eb9760e698ce0a9b.00.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/24/workflows/baeb00842bcb48e4a06ce24cf597c62d/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=Cb58LmCa9JeYcYYVQR7ZoMIHgszgByuzyjomZszUbDs";
 
+  let requesterEmail = "";
   let stockData = [];
   let branches = {};
   let selectedPart = "";
   let selectedSourceBranch = null;
   let map = null;
   let markersLayer = null;
+
+  function getCurrentTimePin() {
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, "0");
+    const mm = String(now.getMinutes()).padStart(2, "0");
+    return `${hh}${mm}`;
+  }
+
+  function isValidCompanyEmail(email) {
+    return /^[^\s@]+@citylogistics\.co\.za$/i.test(email.trim());
+  }
 
   function initMapIfNeeded() {
     if (!map) {
@@ -132,18 +158,42 @@
     return +(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))).toFixed(1);
   }
 
+  function resetSelectionKeepName() {
+    selectedPart = "";
+    selectedSourceBranch = null;
+    document.getElementById("partSearch").value = "";
+    document.getElementById("branchPills").innerHTML = "";
+    document.getElementById("nearestText").textContent = "📍 Select an item to locate nearest stock";
+    document.getElementById("totalStockText").textContent = "📦 Total Network Stock: 0 units";
+    document.getElementById("requestQty").value = "";
+    document.getElementById("jobCard").value = "";
+    document.getElementById("comments").value = "";
+    document.getElementById("qtyError").style.display = "none";
+    if (markersLayer) markersLayer.clearLayers();
+    validateForm();
+  }
+
   async function unlockWithPin() {
+    const email = document.getElementById("emailInput").value.trim().toLowerCase();
     const pin = document.getElementById("pinInput").value.trim();
+    const expectedPin = getCurrentTimePin();
     const errEl = document.getElementById("pinError");
     const btn = document.getElementById("btnUnlock");
 
-    if (!pin) {
-      errEl.textContent = "Error: Please enter your Branch PIN.";
+    if (!isValidCompanyEmail(email)) {
+      errEl.textContent = "Error: Enter a valid @citylogistics.co.za email address.";
+      document.getElementById("emailInput").focus();
       return;
     }
 
-    if (pin !== BRANCH_PIN) {
-      errEl.textContent = "Error: Incorrect PIN. Access denied.";
+    if (!/^\d{4}$/.test(pin)) {
+      errEl.textContent = "Error: Enter the 4-digit current time PIN (HHMM).";
+      document.getElementById("pinInput").focus();
+      return;
+    }
+
+    if (pin !== expectedPin) {
+      errEl.textContent = "Error: Incorrect time PIN. Check current HHMM and try again.";
       document.getElementById("pinInput").focus();
       return;
     }
@@ -161,11 +211,13 @@
         throw new Error("Empty stock response");
       }
 
+      requesterEmail = email;
       stockData = data;
       branches = {};
 
       document.getElementById("pinGate").style.display = "none";
       document.getElementById("appView").style.display = "block";
+      document.getElementById("signedInUser").textContent = `Signed in: ${requesterEmail}`;
       document.getElementById("statusBadge").textContent = `● Live (${stockData.length} rows)`;
       document.getElementById("statusBadge").style.color = "#7ee787";
 
@@ -182,7 +234,7 @@
       myBranchSel.innerHTML = Object.keys(branches).sort().map(b => `<option value="${b}">${b}</option>`).join("");
 
       initMapIfNeeded();
-      renderSelection();
+      resetSelectionKeepName();
     } catch (e) {
       errEl.textContent = "Error: Unable to load stock from Power Automate.";
     } finally {
@@ -275,6 +327,7 @@
       QtyRequested: Number(document.getElementById("requestQty").value),
       CurrentStock: Number(selectedSourceBranch.QtyInStock),
       RequesterName: document.getElementById("requesterName").value.trim(),
+      RequesterEmail: requesterEmail,
       JobCardNumber: document.getElementById("jobCard").value.trim(),
       Comments: document.getElementById("comments").value.trim()
     };
@@ -287,27 +340,28 @@
       });
       if (!res.ok) throw new Error("Flow rejected request");
       alert(`✅ IBT Request submitted! ${payload.QtyRequested}x ${payload.PartName} requested from ${payload.FromBranch}.`);
-      document.getElementById("requestQty").value = "";
-      document.getElementById("jobCard").value = "";
-      document.getElementById("comments").value = "";
+      resetSelectionKeepName();
     } catch (e) {
       alert("❌ Submission failed. Check SubmitIBT_Web flow and Response headers.");
+      validateForm();
     } finally {
       btn.textContent = "Submit IBT Request";
-      validateForm();
     }
   };
 
   document.getElementById("btnUnlock").addEventListener("click", unlockWithPin);
-  document.getElementById("pinInput").addEventListener("keydown", e => {
-    if (e.key === "Enter") unlockWithPin();
+  ["emailInput", "pinInput"].forEach(id => {
+    document.getElementById(id).addEventListener("keydown", e => {
+      if (e.key === "Enter") unlockWithPin();
+    });
   });
   document.getElementById("btnLock").addEventListener("click", () => {
+    requesterEmail = "";
     document.getElementById("pinInput").value = "";
     document.getElementById("pinError").textContent = "";
     document.getElementById("appView").style.display = "none";
     document.getElementById("pinGate").style.display = "block";
-    document.getElementById("statusBadge").textContent = "PIN Required";
+    document.getElementById("statusBadge").textContent = "Verification Required";
     document.getElementById("statusBadge").style.color = "#ffd27d";
   });
 
