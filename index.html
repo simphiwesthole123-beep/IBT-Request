@@ -103,10 +103,10 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+  const BRANCH_PIN = "2415";
   const GET_STOCK_URL = "https://default0e23ddde1cba42eb9760e698ce0a9b.00.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/31/workflows/783eb2701d0e4d9abebdd53365a1d2d5/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=NdIeEnSrJDvDcv1rRnDqKAnTCr97V4CFz786nhr87zM";
   const SUBMIT_IBT_URL = "https://default0e23ddde1cba42eb9760e698ce0a9b.00.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/24/workflows/baeb00842bcb48e4a06ce24cf597c62d/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=Cb58LmCa9JeYcYYVQR7ZoMIHgszgByuzyjomZszUbDs";
 
-  let activePin = "";
   let stockData = [];
   let branches = {};
   let selectedPart = "";
@@ -138,26 +138,29 @@
     const btn = document.getElementById("btnUnlock");
 
     if (!pin) {
-      errEl.textContent = "Please enter your PIN.";
+      errEl.textContent = "Error: Please enter your Branch PIN.";
+      return;
+    }
+
+    if (pin !== BRANCH_PIN) {
+      errEl.textContent = "Error: Incorrect PIN. Access denied.";
+      document.getElementById("pinInput").focus();
       return;
     }
 
     btn.disabled = true;
-    btn.textContent = "Verifying PIN...";
+    btn.textContent = "Loading Stock...";
     errEl.textContent = "";
 
     try {
-      const res = await fetch(GET_STOCK_URL, {
-        headers: { "x-branch-key": pin }
-      });
-      if (!res.ok) throw new Error("Unauthorized or flow error");
+      const res = await fetch(GET_STOCK_URL);
+      if (!res.ok) throw new Error("Flow error");
 
       const data = await res.json();
       if (!Array.isArray(data) || data.length === 0) {
-        throw new Error("Invalid PIN or empty stock response");
+        throw new Error("Empty stock response");
       }
 
-      activePin = pin;
       stockData = data;
       branches = {};
 
@@ -181,7 +184,7 @@
       initMapIfNeeded();
       renderSelection();
     } catch (e) {
-      errEl.textContent = "Invalid PIN or unable to load stock. Check PIN and flow.";
+      errEl.textContent = "Error: Unable to load stock from Power Automate.";
     } finally {
       btn.disabled = false;
       btn.textContent = "Unlock IBT Portal";
@@ -279,10 +282,7 @@
     try {
       const res = await fetch(SUBMIT_IBT_URL, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-branch-key": activePin
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
       if (!res.ok) throw new Error("Flow rejected request");
@@ -291,7 +291,7 @@
       document.getElementById("jobCard").value = "";
       document.getElementById("comments").value = "";
     } catch (e) {
-      alert("❌ Submission failed. Check your Branch PIN and Submit flow URL.");
+      alert("❌ Submission failed. Check SubmitIBT_Web flow and Response headers.");
     } finally {
       btn.textContent = "Submit IBT Request";
       validateForm();
@@ -303,7 +303,6 @@
     if (e.key === "Enter") unlockWithPin();
   });
   document.getElementById("btnLock").addEventListener("click", () => {
-    activePin = "";
     document.getElementById("pinInput").value = "";
     document.getElementById("pinError").textContent = "";
     document.getElementById("appView").style.display = "none";
