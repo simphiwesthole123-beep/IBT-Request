@@ -8,12 +8,25 @@
   <style>
     :root { --bg: #fde4d8; --header: #0b0b0b; --accent: #0078d4; --danger: #c42b1c; }
     * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
-    body { margin: 0; background: var(--bg); color: #1b1b1b; }
+    body { margin: 0; background: var(--bg); color: #1b1b1b; min-height: 100vh; }
     header { background: var(--header); color: #fff; padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; }
     header h1 { margin: 0; font-size: 1.35rem; }
     header p { margin: 2px 0 0; font-size: 0.85rem; color: #d0d0d0; }
+
+    /* PIN Gate */
+    #pinGate { max-width: 400px; margin: 70px auto; background: #fff; padding: 28px 24px; border-radius: 10px; border: 1px solid #e2c7b8; box-shadow: 0 8px 24px rgba(0,0,0,0.08); text-align: center; }
+    #pinGate h2 { margin: 0 0 6px; font-size: 1.25rem; }
+    #pinGate p { margin: 0 0 18px; font-size: 0.9rem; color: #555; }
+    #pinInput { width: 100%; padding: 12px; font-size: 1.1rem; text-align: center; letter-spacing: 4px; border: 1px solid #bbb; border-radius: 6px; margin-bottom: 12px; }
+    #btnUnlock { width: 100%; padding: 12px; background: var(--accent); color: #fff; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer; }
+    #btnUnlock:disabled { background: #9bbad6; cursor: not-allowed; }
+    #pinError { color: var(--danger); font-size: 0.88rem; font-weight: 600; margin-top: 10px; min-height: 20px; }
+
+    /* Main App */
+    #appView { display: none; }
     .branch-bar { background: #1e1e1e; color: #fff; padding: 8px 24px; display: flex; gap: 12px; align-items: center; font-size: 0.9rem; }
-    .branch-bar select, .branch-bar input { padding: 5px 10px; border-radius: 4px; border: none; }
+    .branch-bar select, .btn-lock { padding: 5px 10px; border-radius: 4px; border: none; }
+    .btn-lock { margin-left: auto; background: #333; color: #fff; cursor: pointer; font-size: 0.82rem; }
     .container { display: grid; grid-template-columns: 1.15fr 1fr; gap: 18px; padding: 18px 24px; max-width: 1400px; margin: auto; }
     @media (max-width: 900px) { .container { grid-template-columns: 1fr; } }
     .search-box { grid-column: 1 / -1; }
@@ -39,61 +52,78 @@
     <h1>Stock Request Form</h1>
     <p>All Components — IBT (Inter-Branch Transfer)</p>
   </div>
-  <div id="statusBadge" style="font-size:0.85rem;color:#7ee787;">Loading stock...</div>
+  <div id="statusBadge" style="font-size:0.85rem;color:#ffd27d;">PIN Required</div>
 </header>
 
-<div class="branch-bar">
-  <label for="myBranch"><strong>My Branch:</strong></label>
-  <select id="myBranch"></select>
-  <label for="branchPin" style="margin-left:auto;"><strong>Branch PIN:</strong></label>
-  <input id="branchPin" type="password" placeholder="Enter PIN" style="width:120px;" />
-</div>
+<section id="pinGate">
+  <h2>Branch Access PIN</h2>
+  <p>Enter your branch PIN to load live stock and open the IBT form.</p>
+  <input id="pinInput" type="password" inputmode="numeric" autocomplete="off" placeholder="••••" />
+  <button id="btnUnlock">Unlock IBT Portal</button>
+  <div id="pinError"></div>
+</section>
 
-<div class="container">
-  <div class="search-box">
-    <input id="partSearch" list="partList" placeholder="Search for an item..." />
-    <datalist id="partList"></datalist>
+<main id="appView">
+  <div class="branch-bar">
+    <label for="myBranch"><strong>My Branch:</strong></label>
+    <select id="myBranch"></select>
+    <button id="btnLock" class="btn-lock" type="button">Lock / Change PIN</button>
   </div>
 
-  <div id="map"></div>
-
-  <div class="panel">
-    <div class="summary-card">
-      <div id="nearestText">📍 Select an item to locate nearest stock</div>
-      <div id="totalStockText">📦 Total Network Stock: 0 units</div>
+  <div class="container">
+    <div class="search-box">
+      <input id="partSearch" list="partList" placeholder="Search for an item..." />
+      <datalist id="partList"></datalist>
     </div>
 
-    <div>
-      <div style="font-size:0.85rem;font-weight:600;margin-bottom:6px;">Select Branch You Want Item From:</div>
-      <div id="branchPills" class="branch-pills"></div>
-    </div>
+    <div id="map"></div>
 
-    <div class="form-grid">
-      <input id="requesterName" placeholder="Requester Full Name *" class="full" />
-      <input id="requestQty" type="number" min="1" placeholder="Request Quantity *" />
-      <input id="jobCard" placeholder="Job Card Number *" />
-      <textarea id="comments" rows="2" placeholder="Reason or special delivery instructions... *" class="full"></textarea>
-      <div id="qtyError" class="error full"></div>
-      <button id="btnSubmit" class="submit" disabled>Submit IBT Request</button>
+    <div class="panel">
+      <div class="summary-card">
+        <div id="nearestText">📍 Select an item to locate nearest stock</div>
+        <div id="totalStockText">📦 Total Network Stock: 0 units</div>
+      </div>
+
+      <div>
+        <div style="font-size:0.85rem;font-weight:600;margin-bottom:6px;">Select Branch You Want Item From:</div>
+        <div id="branchPills" class="branch-pills"></div>
+      </div>
+
+      <div class="form-grid">
+        <input id="requesterName" placeholder="Requester Full Name *" class="full" />
+        <input id="requestQty" type="number" min="1" placeholder="Request Quantity *" />
+        <input id="jobCard" placeholder="Job Card Number *" />
+        <textarea id="comments" rows="2" placeholder="Reason or special delivery instructions... *" class="full"></textarea>
+        <div id="qtyError" class="error full"></div>
+        <button id="btnSubmit" class="submit" disabled>Submit IBT Request</button>
+      </div>
     </div>
   </div>
-</div>
+</main>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
   const GET_STOCK_URL = "https://default0e23ddde1cba42eb9760e698ce0a9b.00.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/31/workflows/783eb2701d0e4d9abebdd53365a1d2d5/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=NdIeEnSrJDvDcv1rRnDqKAnTCr97V4CFz786nhr87zM";
   const SUBMIT_IBT_URL = "https://default0e23ddde1cba42eb9760e698ce0a9b.00.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/24/workflows/baeb00842bcb48e4a06ce24cf597c62d/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=Cb58LmCa9JeYcYYVQR7ZoMIHgszgByuzyjomZszUbDs";
 
+  let activePin = "";
   let stockData = [];
   let branches = {};
   let selectedPart = "";
   let selectedSourceBranch = null;
+  let map = null;
+  let markersLayer = null;
 
-  const map = L.map('map').setView([-26.18, 28.22], 10);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap contributors'
-  }).addTo(map);
-  const markersLayer = L.layerGroup().addTo(map);
+  function initMapIfNeeded() {
+    if (!map) {
+      map = L.map('map').setView([-26.18, 28.22], 10);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(map);
+      markersLayer = L.layerGroup().addTo(map);
+    }
+    setTimeout(() => map.invalidateSize(), 50);
+  }
 
   function haversineKm(lat1, lon1, lat2, lon2) {
     const R = 6371, toRad = d => d * Math.PI / 180;
@@ -102,13 +132,39 @@
     return +(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))).toFixed(1);
   }
 
-  async function loadStock() {
+  async function unlockWithPin() {
+    const pin = document.getElementById("pinInput").value.trim();
+    const errEl = document.getElementById("pinError");
+    const btn = document.getElementById("btnUnlock");
+
+    if (!pin) {
+      errEl.textContent = "Please enter your PIN.";
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = "Verifying PIN...";
+    errEl.textContent = "";
+
     try {
       const res = await fetch(GET_STOCK_URL, {
-        headers: { "x-branch-key": document.getElementById("branchPin").value || "INIT" }
+        headers: { "x-branch-key": pin }
       });
-      stockData = await res.json();
+      if (!res.ok) throw new Error("Unauthorized or flow error");
+
+      const data = await res.json();
+      if (!Array.isArray(data) || data.length === 0) {
+        throw new Error("Invalid PIN or empty stock response");
+      }
+
+      activePin = pin;
+      stockData = data;
+      branches = {};
+
+      document.getElementById("pinGate").style.display = "none";
+      document.getElementById("appView").style.display = "block";
       document.getElementById("statusBadge").textContent = `● Live (${stockData.length} rows)`;
+      document.getElementById("statusBadge").style.color = "#7ee787";
 
       const parts = [...new Set(stockData.map(r => r.PartName).filter(Boolean))].sort();
       document.getElementById("partList").innerHTML = parts.map(p => `<option value="${p}">`).join("");
@@ -118,12 +174,17 @@
           branches[r.BranchLocation] = { lat: Number(r.Latitude), lon: Number(r.Longitude) };
         }
       });
+
       const myBranchSel = document.getElementById("myBranch");
       myBranchSel.innerHTML = Object.keys(branches).sort().map(b => `<option value="${b}">${b}</option>`).join("");
+
+      initMapIfNeeded();
       renderSelection();
     } catch (e) {
-      document.getElementById("statusBadge").textContent = "⚠ Failed to load stock (check Flow URL)";
-      document.getElementById("statusBadge").style.color = "#ff7b72";
+      errEl.textContent = "Invalid PIN or unable to load stock. Check PIN and flow.";
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Unlock IBT Portal";
     }
   }
 
@@ -220,7 +281,7 @@
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-branch-key": document.getElementById("branchPin").value || ""
+          "x-branch-key": activePin
         },
         body: JSON.stringify(payload)
       });
@@ -229,7 +290,6 @@
       document.getElementById("requestQty").value = "";
       document.getElementById("jobCard").value = "";
       document.getElementById("comments").value = "";
-      await loadStock();
     } catch (e) {
       alert("❌ Submission failed. Check your Branch PIN and Submit flow URL.");
     } finally {
@@ -238,9 +298,22 @@
     }
   };
 
+  document.getElementById("btnUnlock").addEventListener("click", unlockWithPin);
+  document.getElementById("pinInput").addEventListener("keydown", e => {
+    if (e.key === "Enter") unlockWithPin();
+  });
+  document.getElementById("btnLock").addEventListener("click", () => {
+    activePin = "";
+    document.getElementById("pinInput").value = "";
+    document.getElementById("pinError").textContent = "";
+    document.getElementById("appView").style.display = "none";
+    document.getElementById("pinGate").style.display = "block";
+    document.getElementById("statusBadge").textContent = "PIN Required";
+    document.getElementById("statusBadge").style.color = "#ffd27d";
+  });
+
   ["partSearch", "myBranch"].forEach(id => document.getElementById(id).addEventListener("change", renderSelection));
   ["requesterName", "requestQty", "jobCard", "comments"].forEach(id => document.getElementById(id).addEventListener("input", validateForm));
-  loadStock();
 </script>
 </body>
 </html>
